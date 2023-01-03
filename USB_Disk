@@ -1,0 +1,122 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Management;
+
+namespace MIL_Text
+{
+    class USB_Disk
+    {
+        private static List<string> _serialNumber = new List<string>();
+        private static List<string> _USBSN = new List<string>();
+        private static List<string> _USBDisk = new List<string>();
+        //獲取USB序號
+        public static void GetUSB(out string[] serial)
+        {
+            string[] Disk;
+            _USBSN.Clear(); //清除之前的序列号资讯
+            _USBDisk.Clear();
+            ManagementObjectSearcher SUSBDisk = new ManagementObjectSearcher("SELECT * FROM Win32_LogicalDisk where drivetype=2");//可移动磁盘且容量大于900MB     where drivetype=2 and Size<943718400 
+            string USBDisk = ""; 
+            if (SUSBDisk.Get().Count == 0)
+            {
+                serial = null;
+                return;
+            }
+            else
+            {
+                foreach (ManagementObject moUSB in SUSBDisk.Get())
+                {
+                    USBDisk = moUSB["DeviceID"].ToString();
+                    //USBSN = moUSB.Properties["SerialNumber"].Value.ToString();
+                    _USBDisk.Add(USBDisk);
+                }
+                /* foreach (ManagementObject moUSB in SUSBSN.Get())
+                 {
+                     string DId = moUSB["DeviceID"].ToString();
+                     USBSN = DId.Substring(DId.LastIndexOf("\\") + 1);
+                     _USBSN.Add(USBSN);
+                 }*/
+
+
+            }
+
+            Disk = new string[_USBDisk.Count];
+            Disk = _USBDisk.ToArray();
+
+            serial = new string[Disk.Length];
+            for (int i = 0; i < serial.Length; i++)
+            {
+                serial[i] = Disk[i];
+            }
+        }
+
+        public static string getSerialFromDeviceID(string Drive)
+        {
+
+            ManagementObjectCollection moc;
+            ManagementClass mc;
+            string s2 = "", s3 = "";
+            if (Drive.EndsWith("\\"))
+                Drive = Drive.Substring(0, 2);
+            try
+            {
+                ManagementObjectSearcher mos = new ManagementObjectSearcher("SELECT * FROM Win32_LogicalDisk WHERE DeviceID=\"" + Drive + "\"");
+                moc = mos.Get();
+                if (moc.Count == 1)
+                {
+                    string strHd = "";
+                    foreach (var obj in mos.Get())
+                    {
+                        ManagementObjectSearcher searchobj = new ManagementObjectSearcher("SELECT * FROM Win32_LogicalDiskToPartition");
+                        foreach (var obj2 in searchobj.Get())
+                            if (obj2.Properties["Dependent"].Value.ToString() == obj.Properties["__PATH"].Value.ToString())
+                            {
+                                s2 = obj2.Properties["Antecedent"].Value.ToString();
+                                break;
+                            }
+                        searchobj.Dispose();
+                        searchobj = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDriveToDiskPartition");
+                        foreach (var obj2 in searchobj.Get())
+                            if (obj2.Properties["Dependent"].Value.ToString() == s2)
+                            {
+                                s3 = obj2.Properties["Antecedent"].Value.ToString();
+                                break;
+                            }
+                    }
+
+                    if (s3 != "")
+                    {
+                        mc = new ManagementClass("Win32_DiskDrive");
+                        moc = mc.GetInstances();
+                        if (moc.Count > 0)
+                            strHd = "";
+
+                        foreach (ManagementObject mo in moc)
+                            if (mo.Path.ToString() == s3)
+                            {
+                                strHd += mo.Properties["SerialNumber"].Value.ToString();
+                                break;
+                            }
+                        return strHd.ToUpper();
+                    }
+                    else
+                    {
+                        return "-1";
+                    }
+                }
+                else
+                {
+                    return "-1";
+                }
+            }
+            catch
+            {
+                return "-1";
+            }
+
+        }
+    }
+}
